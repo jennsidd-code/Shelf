@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f2ee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Shelf">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Shelf — Beauty Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="vendor/zxing.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f2ee; --card:#fffdfb; --ink:#2b2220; --muted:#86766f; --line:#eadfd8;
+    --accent:#b5577a; --accent-ink:#fff; --accent-soft:#f6e3ea;
+    --ok:#3f7d5c; --ok-soft:#e3f1e8; --warn:#b7791f; --warn-soft:#fbefd9; --bad:#b4413a; --bad-soft:#f8e1de;
+    --r:16px; --shadow:0 1px 2px rgba(60,30,20,.05),0 6px 20px rgba(60,30,20,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#1b1715;--card:#262020;--ink:#f3ebe6;--muted:#a8978f;--line:#3a312e;--accent:#e08aa9;--accent-ink:#2b1520;--accent-soft:#3c2630;
+      --ok:#7cc59c;--ok-soft:#203229;--warn:#e7b35e;--warn-soft:#3a2f1c;--bad:#ef8a82;--bad-soft:#3d2321;--shadow:none}
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  button,input,select,textarea{font:inherit;color:inherit}
+  .wrap{max-width:720px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom))}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;letter-spacing:-.01em;margin:0;line-height:1}
+  .sub{color:var(--muted);font-size:13px;margin-top:6px}
+  .sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .dot.on{background:var(--ok)} .dot.local{background:var(--warn)}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer;text-align:left}
+  .stat b{display:block;font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:600;line-height:1.1}
+  .stat span{font-size:11.5px;color:var(--muted)}
+  .stat.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+
+  .scanbar{display:flex;gap:8px;margin-bottom:12px}
+  .btn{border:0;border-radius:12px;padding:12px 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .btn.primary{background:var(--accent);color:var(--accent-ink)}
+  .btn.ghost{background:var(--card);border:1px solid var(--line)}
+  .btn.soft{background:var(--accent-soft);color:var(--accent)}
+  .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.big{flex:1;padding:16px;font-size:16px;border-radius:14px}
+  .btn svg{width:20px;height:20px}
+
+  .manual{display:flex;gap:8px;margin-bottom:18px}
+  input[type=text],input[type=number],input[type=date],input[type=search],select,textarea{
+    width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  .manual input{flex:1}
+
+  .tools{display:flex;gap:8px;margin-bottom:10px}
+  .tools input{flex:1}
+  .tools select{width:auto;max-width:44%}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;scrollbar-width:none}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;white-space:nowrap;cursor:pointer}
+  .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+  .list{display:flex;flex-direction:column;gap:8px}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow)}
+  .thumb{width:52px;height:52px;border-radius:12px;background:var(--accent-soft);flex:none;object-fit:cover;display:flex;align-items:center;justify-content:center;font-family:Fraunces,serif;color:var(--accent);font-size:20px;font-weight:600}
+  .meta{flex:1;min-width:0;cursor:pointer}
+  .brand{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+  .tag{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--bg);color:var(--muted)}
+  .tag.low{background:var(--warn-soft);color:var(--warn)} .tag.out{background:var(--bad-soft);color:var(--bad)}
+  .tag.exp{background:var(--bad-soft);color:var(--bad)} .tag.soon{background:var(--warn-soft);color:var(--warn)}
+  .qty{display:flex;align-items:center;gap:4px;flex:none}
+  .qty button{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-size:18px;line-height:1}
+  .qty b{min-width:24px;text-align:center;font-size:17px}
+  .empty{text-align:center;color:var(--muted);padding:40px 16px;border:1.5px dashed var(--line);border-radius:var(--r)}
+  .empty h3{font-family:Fraunces,serif;color:var(--ink);font-weight:500;margin:0 0 6px}
+  .foot{display:flex;gap:8px;justify-content:center;margin-top:20px}
+  .foot .btn{font-size:13px;padding:9px 12px}
+
+  /* sheet */
+  .scrim{position:fixed;inset:0;background:rgba(20,10,8,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+  .scrim.open{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 18px calc(22px + env(safe-area-inset-bottom))}
+  @media(min-width:640px){.scrim{align-items:center}.sheet{border-radius:22px}}
+  .sheet h2{font-family:Fraunces,serif;font-weight:600;font-size:22px;margin:0 0 4px}
+  .sheet .code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .grid .full{grid-column:1/-1}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  .row{display:flex;gap:8px;margin-top:16px}
+  .row .btn{flex:1}
+  .hero{display:flex;gap:14px;align-items:center;margin:12px 0}
+  .hero .thumb{width:72px;height:72px;font-size:28px}
+  .bigqty{display:flex;align-items:center;justify-content:center;gap:18px;margin:14px 0}
+  .bigqty button{width:56px;height:56px;border-radius:16px;font-size:26px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+  .bigqty b{font-family:Fraunces,serif;font-size:40px;min-width:60px;text-align:center}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .err{background:var(--bad-soft);color:var(--bad);border-radius:12px;padding:10px 12px;font-size:13.5px;margin-top:10px}
+  .ai{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin-top:12px;font-size:13.5px}
+  .ai .btn{padding:8px 12px;font-size:13px;margin-left:auto}
+  .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.8s linear infinite;display:inline-block}
+  @keyframes s{to{transform:rotate(360deg)}}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(200px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:14px;transition:transform .25s;z-index:40;display:flex;gap:14px;align-items:center;max-width:92vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .toast button{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;padding:0}
+  .hidden{display:none!important}
+  .scanner{position:fixed;inset:0;background:#000;z-index:30;display:none;flex-direction:column}
+  .scanner.open{display:flex}
+  .scanner video{flex:1;width:100%;object-fit:cover;min-height:0}
+  .scanner .frame{position:absolute;left:8%;right:8%;top:32%;height:22%;border:3px solid rgba(255,255,255,.9);border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
+  .scanner .bar{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));display:flex;gap:8px;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+  .scanner .bar .btn{flex:1}
+  .scanner .hint{position:absolute;top:calc(20px + env(safe-area-inset-top));left:0;right:0;text-align:center;color:#fff;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+  .gear{background:none;border:0;padding:6px;cursor:pointer;color:var(--muted)}
+  .gear svg{width:22px;height:22px}
+  .section{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+  .section h3{font-size:14px;margin:0 0 6px}
+  .check input,.check select,.check textarea{border-color:var(--warn);background:var(--warn-soft)}
+  .check label::after{content:" · please check";color:var(--warn);font-weight:600}
+  .progress{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .match{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:10px 12px;margin-top:12px;font-size:13.5px;display:flex;gap:10px;align-items:center}
+  .match .btn{margin-left:auto;padding:8px 12px;font-size:13px;background:var(--ok);color:#fff}
+  .photo-hero{width:100%;max-height:160px;object-fit:contain;border-radius:14px;background:var(--bg);margin:8px 0 4px}
+  textarea.csv{height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Shelf</h1>
+      <div class="sub">Your beauty inventory, one scan at a time</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px"><div class="sync"><span class="dot" id="syncDot"></span><span id="syncText">Loading…</span></div>
+    <button class="gear" id="settingsBtn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+  </header>
+
+  <div class="stats">
+    <button class="stat" data-filter="all"><b id="sProducts">0</b><span>Products</span></button>
+    <button class="stat" data-filter="all"><b id="sUnits">0</b><span>Total units</span></button>
+    <button class="stat" data-filter="low"><b id="sLow">0</b><span>Low / out</span></button>
+    <button class="stat" data-filter="exp"><b id="sExp">0</b><span>Expiring</span></button>
+  </div>
+
+  <div class="scanbar">
+    <label class="btn primary big" style="margin:0;color:var(--accent-ink);font-size:15px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.5-2h6l1.5 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+      Snap products
+      <input id="photoInput" type="file" accept="image/*" multiple class="hidden">
+    </label>
+    <button class="btn soft big" id="liveScanBtn" style="font-size:15px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10.5 8v8M14 8v8M17 8v8"/></svg>
+      Scan barcode
+    </button>
+    <input id="scanInput" type="file" accept="image/*" capture="environment" class="hidden">
+  </div>
+  <div class="note" style="margin:-4px 0 12px;text-align:center">Snap products: one product per photo — pick several at once to catalog a whole shelf.</div>
+  <form class="manual" id="manualForm">
+    <input type="text" id="manualCode" inputmode="numeric" placeholder="…or type the barcode number" autocomplete="off">
+    <button class="btn ghost" type="submit">Go</button>
+  </form>
+
+  <div class="tools">
+    <input type="search" id="search" placeholder="Search brand, product, notes">
+    <select id="sort">
+      <option value="updated">Recent</option>
+      <option value="name">A–Z</option>
+      <option value="qty">Quantity</option>
+      <option value="expiry">Expiry</option>
+    </select>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="list" id="list"></div>
+
+  <div class="foot">
+    <button class="btn ghost" id="addNoCode">+ Add without barcode</button>
+    <button class="btn ghost" id="exportBtn">Export CSV</button>
+    <button class="btn ghost" id="backupBtn">Backup</button>
+  </div>
+</div>
+
+<div class="scanner" id="scanner">
+  <video id="scanVideo" playsinline muted autoplay></video>
+  <div class="frame"></div>
+  <div class="hint" id="scanHint">Line up the barcode inside the box</div>
+  <div class="bar"><button class="btn ghost" id="scanClose">Cancel</button><button class="btn ghost" id="scanPhoto">Use a photo</button></div>
+</div>
+<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"><span id="toastText"></span><button id="toastUndo" class="hidden">Undo</button></div>
+
+<script>
+const CATEGORIES = ["Cleanser","Toner","Essence","Serum","Exfoliant","Retinoid","Moisturizer","Eye care","Sunscreen","Mask","Lip","Makeup","Body","Hair","Fragrance","Device / tool","Other"];
+const LOCATIONS = ["Bathroom","Vanity","Backstock","Fridge","Travel bag","Other"];
+const STARTER_BRANDS = ["The Ordinary","Paula's Choice","CeraVe","La Roche-Posay","Cosrx","Skinceuticals","Drunk Elephant","Medik8","Naturium","The Inkey List","Good Molecules","Beauty of Joseon","Anua","Round Lab","Torriden","Isntree","Some By Mi","Laneige","Sulwhasoo","Dr. Jart+","Kiehl's","Clinique","Estée Lauder","Lancôme","Shiseido","Tatcha","Glow Recipe","Sunday Riley","Summer Fridays","Supergoop!","EltaMD","Biossance","First Aid Beauty","Neutrogena","Olay","Aveeno","Vanicream","Avène","Bioderma","Eucerin","Differin","Murad","Peter Thomas Roth","Dermalogica","Kate Somerville","Augustinus Bader","Dr. Dennis Gross","Allies of Skin","Krave Beauty","Byoma","Bubble","Versed","e.l.f.","NYX","Maybelline","L'Oréal Paris","Fenty Beauty","Rare Beauty","Charlotte Tilbury","NARS","MAC","Benefit","Too Faced","Urban Decay","Glossier","Ilia","Merit","Kosas","Saie","Tower 28","Milk Makeup","Haus Labs","Huda Beauty","Anastasia Beverly Hills","Laura Mercier","Hourglass","Dior","Chanel","YSL","Tom Ford","Sol de Janeiro","Necessaire","Olaplex","K18","Briogeo","Ouai","Moroccanoil","Dyson","NuFace","Solawave","CurrentBody","Omnilux","Foreo"];
+const ACTIVES = ["Niacinamide","Retinol","Retinal","Tretinoin","Adapalene","Bakuchiol","Vitamin C (L-ascorbic acid)","Vitamin C derivative","Glycolic acid","Lactic acid","Mandelic acid","Salicylic acid","Azelaic acid","Gluconolactone (PHA)","Hyaluronic acid","Ceramides","Peptides","Copper peptides","Tranexamic acid","Alpha arbutin","Centella asiatica","Panthenol","Squalane","Snail mucin","Zinc oxide","Chemical UV filters","Benzoyl peroxide","Urea","Allantoin","Mugwort","Propolis","Rice extract","Green tea","Exosomes","PDRN"];
+const brandOptions = () => [...new Set([...items.map(i => (i.brand||"").trim()).filter(Boolean), ...STARTER_BRANDS])].sort((a,b) => a.localeCompare(b));
+const sizeOptions = () => [...new Set([...items.map(i => (i.size||"").trim()).filter(Boolean), "15 mL","30 mL","50 mL","100 mL","118 mL","150 mL","200 mL","236 mL","473 mL","1 oz","1.7 oz","4 oz","8 oz","16 oz"])];
+
+let items = [];               // [{id, ...}]
+let store = null;             // {kind:'db'|'local', save(item), remove(id)}
+/* Claude API (your own key, stored only on this device) */
+const MODEL = "claude-haiku-5-5";
+const getKey = () => { try{ return localStorage.getItem("shelf-api-key") || ""; }catch(e){ return ""; } };
+const hasKey = () => !!getKey();
+function blobToB64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
+async function claudeJSON(prompt, blob){
+  const key = getKey(); if (!key) throw {code:"no_key"};
+  const data = await blobToB64(blob);
+  let resp;
+  try{
+    resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body: JSON.stringify({model: MODEL, max_tokens: 700, messages:[{role:"user", content:[
+        {type:"image", source:{type:"base64", media_type:"image/jpeg", data}},
+        {type:"text", text: prompt}]}]})
+    });
+  }catch(e){ throw {code:"offline"}; }
+  if (resp.status === 401 || resp.status === 403) throw {code:"bad_key"};
+  if (resp.status === 429 || resp.status === 529) throw {code:"rate_limited"};
+  if (!resp.ok) throw {code:"api", status: resp.status};
+  const out = await resp.json();
+  const text = (out.content || []).map(c => c.text || "").join("");
+  const m = text.match(/\{[\s\S]*\}/); if (!m) throw {code:"parse"};
+  return JSON.parse(m[0]);
+}
+let filter = {cat:"All", special:"all"};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+/* ---------- barcode helpers ---------- */
+function normCode(c){
+  c = String(c || "").trim().replace(/\s+/g, "");
+  if (/^\d{13}$/.test(c) && c[0] === "0") c = c.slice(1);   // EAN-13 with leading 0 == UPC-A
+  return c;
+}
+function loadImage(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => res({img, url});
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Couldn't open that photo.")); };
+    img.src = url;
+  });
+}
+function drawScaled(img, max, rotate){
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+  const c = document.createElement("canvas");
+  if (rotate){ c.width = h; c.height = w; } else { c.width = w; c.height = h; }
+  const x = c.getContext("2d", {willReadFrequently:true});
+  x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height);
+  if (rotate){ x.translate(h, 0); x.rotate(Math.PI/2); }
+  x.drawImage(img, 0, 0, w, h);
+  return c;
+}
+async function decodeImage(img){
+  if ("BarcodeDetector" in window){
+    try{
+      const det = new BarcodeDetector();
+      const found = await det.detect(img);
+      if (found && found.length) return found[0].rawValue;
+    }catch(e){}
+  }
+  if (!window.ZXing) throw new Error("Scanner library didn't load. Type the number instead.");
+  const Z = window.ZXing;
+  const hints = new Map();
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
+    Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E,
+    Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.ITF,
+    Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX
+  ]);
+  const reader = new Z.MultiFormatReader();
+  reader.setHints(hints);
+  for (const rotate of [false, true]){
+    for (const max of [1400, 900, 2000, 600]){
+      try{
+        const c = drawScaled(img, max, rotate);
+        const src = new Z.HTMLCanvasElementLuminanceSource(c);
+        const r = reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(src)));
+        if (r) return r.getText();
+      }catch(e){ /* try next */ }
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  return null;
+}
+function makeThumb(img){
+  const size = 160, c = document.createElement("canvas");
+  c.width = c.height = size;
+  const x = c.getContext("2d");
+  x.fillStyle="#fff"; x.fillRect(0,0,size,size);
+  const m = Math.min(img.naturalWidth, img.naturalHeight);
+  x.drawImage(img, (img.naturalWidth-m)/2, (img.naturalHeight-m)/2, m, m, 0, 0, size, size);
+  return c.toDataURL("image/jpeg", 0.72);
+}
+function photoBlob(img){
+  const c = drawScaled(img, 1024, false);
+  return new Promise(res => c.toBlob(b => res(b), "image/jpeg", 0.85));
+}
+
+/* ---------- dates ---------- */
+function expiryOf(it){
+  let d = it.expires ? new Date(it.expires + "T00:00:00") : null;
+  if (it.opened && it.pao){
+    const o = new Date(it.opened + "T00:00:00"); o.setMonth(o.getMonth() + Number(it.pao));
+    if (!d || o < d) d = o;
+  }
+  return d;
+}
+function expStatus(it){
+  const d = expiryOf(it); if (!d) return null;
+  const days = Math.round((d - new Date()) / 864e5);
+  if (days < 0) return {k:"exp", t:"Expired"};
+  if (days <= 45) return {k:"soon", t:`Expires in ${days}d`};
+  return {k:"", t:"Good till " + d.toLocaleDateString(undefined,{month:"short",year:"numeric"})};
+}
+const isLow = it => Number(it.qty) <= Number(it.lowAt ?? 0);
+
+/* ---------- storage ---------- */
+function localStore(){
+  const KEY = "shelf-inventory-v1";
+  try{ items = JSON.parse(localStorage.getItem(KEY) || "[]"); }catch(e){ items = []; }
+  const persist = () => { try{ localStorage.setItem(KEY, JSON.stringify(items)); }catch(e){} };
+  return {
+    kind:"local",
+    async save(it){ const i = items.findIndex(x => x.id === it.id); if (i >= 0) items[i] = it; else items.push(it); persist(); render(); },
+    async remove(id){ items = items.filter(x => x.id !== id); persist(); render(); }
+  };
+}
+function setSync(kind, text){
+  $("#syncDot").className = "dot " + (kind === "db" ? "on" : kind === "local" ? "local" : "");
+  $("#syncText").textContent = text;
+}
+async function initStore(){
+  store = localStore();
+  setSync("local", "On this phone");
+  try{ if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+  render();
+}
+function clean(it){ const o = {}; for (const [k,v] of Object.entries(it)) if (k !== "id" && v !== undefined) o[k] = v; return o; }
+
+/* ---------- rendering ---------- */
+function render(){
+  const q = $("#search").value.trim().toLowerCase();
+  const cats = ["All", ...CATEGORIES.filter(c => items.some(i => i.category === c))];
+  if (!cats.includes(filter.cat)) filter.cat = "All";
+  $("#chips").innerHTML = cats.map(c => `<button class="chip ${c===filter.cat?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+
+  $("#sProducts").textContent = items.length;
+  $("#sUnits").textContent = items.reduce((a,i) => a + (Number(i.qty)||0), 0);
+  $("#sLow").textContent = items.filter(isLow).length;
+  $("#sExp").textContent = items.filter(i => { const s = expStatus(i); return s && s.k; }).length;
+  document.querySelectorAll(".stat").forEach(b => b.classList.toggle("active", filter.special !== "all" && b.dataset.filter === filter.special));
+
+  let list = items.filter(i =>
+    (filter.cat === "All" || i.category === filter.cat) &&
+    (filter.special !== "low" || isLow(i)) &&
+    (filter.special !== "exp" || (expStatus(i)||{}).k) &&
+    (!q || [i.brand,i.name,i.notes,i.barcode,i.category,i.location].join(" ").toLowerCase().includes(q)));
+  const s = $("#sort").value;
+  list.sort((a,b) =>
+    s === "name" ? (a.brand+a.name).localeCompare(b.brand+b.name) :
+    s === "qty" ? (a.qty - b.qty) :
+    s === "expiry" ? ((expiryOf(a)||9e15) - (expiryOf(b)||9e15)) :
+    (b.updated||0) - (a.updated||0));
+
+  if (!items.length){
+    $("#list").innerHTML = `<div class="empty"><h3>Your shelf is empty</h3>Tap <b>Snap products</b> to add things from photos, or <b>Scan barcode</b> to point your camera at a barcode.</div>`;
+    return;
+  }
+  if (!list.length){ $("#list").innerHTML = `<div class="empty">Nothing matches that filter.</div>`; return; }
+  $("#list").innerHTML = list.map(i => {
+    const e = expStatus(i), qty = Number(i.qty)||0;
+    const tags = [
+      i.category && `<span class="tag">${esc(i.category)}</span>`,
+      i.location && `<span class="tag">${esc(i.location)}</span>`,
+      qty === 0 ? `<span class="tag out">Out</span>` : isLow(i) ? `<span class="tag low">Low</span>` : "",
+      e && e.k ? `<span class="tag ${e.k}">${e.t}</span>` : ""
+    ].filter(Boolean).join("");
+    return `<div class="item">
+      ${thumbHtml(i)}
+      <div class="meta" data-open="${i.id}">
+        ${i.brand ? `<div class="brand">${esc(i.brand)}</div>` : ""}
+        <div class="name">${esc(i.name || "Unnamed product")}</div>
+        <div class="tags">${tags}</div>
+      </div>
+      <div class="qty"><button data-dec="${i.id}" aria-label="Use one">−</button><b>${qty}</b><button data-inc="${i.id}" aria-label="Add one">+</button></div>
+    </div>`;
+  }).join("");
+}
+function thumbHtml(i){
+  return i.thumb ? `<img class="thumb" src="${esc(i.thumb)}" alt="">` :
+    `<div class="thumb">${esc((i.brand || i.name || "?").trim()[0] || "?").toUpperCase()}</div>`;
+}
+
+/* ---------- actions ---------- */
+let undoFn = null, toastT = null;
+function toast(text, undo){
+  $("#toastText").textContent = text;
+  undoFn = undo || null;
+  $("#toastUndo").classList.toggle("hidden", !undo);
+  $("#toast").classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => $("#toast").classList.remove("show"), 4000);
+}
+$("#toastUndo").onclick = () => { if (undoFn) undoFn(); undoFn = null; $("#toast").classList.remove("show"); };
+
+async function bump(id, d){
+  const it = items.find(x => x.id === id); if (!it) return;
+  const before = {...it};
+  const qty = Math.max(0, (Number(it.qty)||0) + d);
+  if (qty === it.qty) return;
+  await store.save({...it, qty, updated: Date.now()});
+  const label = (it.brand ? it.brand + " " : "") + (it.name || "");
+  toast(`${label.trim() || "Item"}: ${qty} left`, () => store.save(before));
+}
+
+function openSheet(html){ $("#sheet").innerHTML = html; $("#sheet").scrollTop = 0; $("#scrim").classList.add("open"); }
+function closeSheet(){ $("#scrim").classList.remove("open"); $("#sheet").innerHTML = ""; }
+$("#scrim").addEventListener("click", e => { if (e.target.id === "scrim") closeSheet(); });
+
+/* Known product: quick actions */
+function showKnown(it, justScanned, opts = {}){
+  const e = expStatus(it);
+  openSheet(`
+    ${opts.queue && opts.queue.n > 1 ? `<div class="progress"><span>Photo ${opts.queue.i + 1} of ${opts.queue.n}</span><span>Already on your shelf</span></div>` : ""}
+    <div class="code">${justScanned ? "Scanned · " : ""}${esc(it.barcode || "No barcode")}</div>
+    <div class="hero">${thumbHtml(it)}<div>
+      ${it.brand ? `<div class="brand">${esc(it.brand)}</div>` : ""}
+      <h2>${esc(it.name || "Unnamed product")}</h2>
+      <div class="tags">${it.category ? `<span class="tag">${esc(it.category)}</span>`:""}${it.location ? `<span class="tag">${esc(it.location)}</span>`:""}${e ? `<span class="tag ${e.k}">${e.t}</span>`:""}</div>
+    </div></div>
+    <div class="bigqty"><button id="kDec">−</button><b id="kQty">${Number(it.qty)||0}</b><button id="kInc">+</button></div>
+    <div class="note" style="text-align:center">in stock</div>
+    ${it.notes ? `<div class="note">${esc(it.notes)}</div>` : ""}
+    <div class="row"><button class="btn ghost" id="kEdit">Edit details</button><button class="btn primary" id="kDone">${opts.queue && opts.queue.i < opts.queue.n - 1 ? "Next" : "Done"}</button></div>
+  `);
+  const upd = async d => { await bump(it.id, d); const cur = items.find(x => x.id === it.id); if (cur) $("#kQty").textContent = cur.qty; };
+  $("#kInc").onclick = () => upd(1);
+  $("#kDec").onclick = () => upd(-1);
+  $("#kEdit").onclick = () => showForm(items.find(x => x.id === it.id) || it, {onDone: opts.onDone});
+  $("#kDone").onclick = () => { if (opts.onDone) opts.onDone(); else closeSheet(); };
+}
+
+/* Add / edit form
+   opts: {thumb, photo(blob), photoUrl, unsure:Set, autoIdentify, queue:{i,n}, onDone, onSkip} */
+function field(name, labelText, inner, unsure, full){
+  return `<div class="${full ? "full " : ""}${unsure && unsure.has(name) ? "check" : ""}" data-f="${name}"><label>${labelText}</label>${inner}</div>`;
+}
+function showForm(it, opts = {}){
+  const isNew = !it.id;
+  const v = k => esc(it[k] ?? "");
+  const u = opts.unsure || new Set();
+  const canAI = isNew && hasKey() && opts.photo;
+  const catOpts = [...CATEGORIES]; if (it.category && !catOpts.includes(it.category)) catOpts.unshift(it.category);
+  const locOpts = [...new Set([...LOCATIONS, ...items.map(i => i.location).filter(Boolean)])];
+  openSheet(`
+    ${opts.queue ? `<div class="progress"><span>Photo ${opts.queue.i + 1} of ${opts.queue.n}</span><span>${opts.queue.n - opts.queue.i - 1} to go</span></div>` : ""}
+    <h2>${isNew ? "New product" : "Edit product"}</h2>
+    <div class="code">${it.barcode ? "Barcode " + esc(it.barcode) : "No barcode"}</div>
+    ${opts.photoUrl ? `<img class="photo-hero" src="${opts.photoUrl}" alt="">` : ""}
+    ${canAI ? `<div class="ai" id="aiBox"><span>✨ Fill in the details from your photo?</span><button class="btn primary" id="aiBtn" type="button">Identify</button></div>` : ""}
+    ${opts.aiNote ? `<div class="ai" id="aiBox"><span>${opts.aiNote}</span></div>` : ""}
+    <div id="matchBox"></div>
+    <form id="itemForm">
+      <datalist id="dlBrands">${brandOptions().map(b => `<option value="${esc(b)}">`).join("")}</datalist>
+      <datalist id="dlSizes">${sizeOptions().map(b => `<option value="${esc(b)}">`).join("")}</datalist>
+      <datalist id="dlActives">${ACTIVES.map(b => `<option value="${esc(b)}">`).join("")}</datalist>
+      <div class="grid">
+        ${field("brand","Brand",`<input type="text" name="brand" list="dlBrands" value="${v("brand")}" placeholder="Pick or type a brand" autocomplete="off">`,u,true)}
+        ${field("name","Product name",`<input type="text" name="name" value="${v("name")}" placeholder="e.g. 2% BHA Liquid Exfoliant" required>`,u,true)}
+        ${field("category","Category",`<select name="category"><option value="">Choose…</option>${catOpts.map(c => `<option ${it.category===c?"selected":""}>${esc(c)}</option>`).join("")}</select>`,u)}
+        ${field("size","Size",`<input type="text" name="size" list="dlSizes" value="${v("size")}" placeholder="30 mL" autocomplete="off">`,u)}
+        ${field("actives","Key actives",`<input type="text" name="actives" list="dlActives" value="${v("actives")}" placeholder="e.g. Niacinamide, Zinc" autocomplete="off">`,u,true)}
+        ${field("qty","Quantity",`<input type="number" name="qty" min="0" value="${it.qty ?? 1}">`,u)}
+        ${field("lowAt","Alert when at or below",`<input type="number" name="lowAt" min="0" value="${it.lowAt ?? 0}">`,u)}
+        ${field("location","Where it lives",`<select name="location"><option value="">Choose…</option>${locOpts.map(c => `<option ${it.location===c?"selected":""}>${esc(c)}</option>`).join("")}</select>`,u,true)}
+        ${field("opened","Opened on",`<input type="date" name="opened" value="${v("opened")}">`,u)}
+        ${field("pao","PAO (months)",`<select name="pao"><option value="">—</option>${[3,6,9,12,18,24,36].map(m => `<option value="${m}" ${String(it.pao)===String(m)?"selected":""}>${m}M</option>`).join("")}</select>`,u)}
+        ${field("expires","Expiration date (if printed)",`<input type="date" name="expires" value="${v("expires")}">`,u,true)}
+        ${field("barcode","Barcode",`<input type="text" name="barcode" inputmode="numeric" value="${v("barcode")}" placeholder="Optional" autocomplete="off">`,u,true)}
+        ${field("notes","Notes",`<textarea name="notes" rows="2" placeholder="Where you bought it, thoughts…">${esc(it.notes || "")}</textarea>`,u,true)}
+      </div>
+      <div class="row">
+        ${isNew ? `<button class="btn ghost" type="button" id="fCancel">${opts.queue ? "Skip" : "Cancel"}</button>` : `<button class="btn danger" type="button" id="fDelete">Delete</button>`}
+        <button class="btn primary" type="submit">${isNew ? (opts.queue && opts.queue.i < opts.queue.n - 1 ? "Add & next" : "Add to shelf") : "Save"}</button>
+      </div>
+    </form>
+  `);
+  const form = $("#itemForm");
+  // clear "please check" once she touches a field
+  form.addEventListener("input", e => { const w = e.target.closest("[data-f]"); if (w) w.classList.remove("check"); });
+  form.addEventListener("change", e => { const w = e.target.closest("[data-f]"); if (w) w.classList.remove("check"); });
+  form.addEventListener("input", e => { if (["brand","name","barcode"].includes(e.target.name)) checkMatch(form, it, opts); });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(form), o = {};
+    for (const [k, val] of fd.entries()) o[k] = String(val).trim();
+    const out = {...it, ...o, qty: Math.max(0, parseInt(o.qty) || 0), lowAt: Math.max(0, parseInt(o.lowAt) || 0),
+      pao: o.pao ? parseInt(o.pao) : "", barcode: normCode(o.barcode), id: it.id || uid(), updated: Date.now()};
+    if (isNew){ out.created = Date.now(); if (opts.thumb) out.thumb = opts.thumb; }
+    await store.save(out);
+    toast(isNew ? "Added to your shelf" : "Saved");
+    if (opts.onDone) opts.onDone(); else closeSheet();
+  };
+  if (isNew) $("#fCancel").onclick = () => { if (opts.onSkip) opts.onSkip(); else closeSheet(); };
+  else $("#fDelete").onclick = () => confirmDelete(it);
+  if (canAI) $("#aiBtn").onclick = async () => {
+    $("#aiBox").innerHTML = `<span class="spin"></span><span>Looking at your photo…</span>`;
+    const r = await identifyBlob(opts.photo);
+    applyAI(form, r, it, opts);
+  };
+  checkMatch(form, it, opts);
+}
+
+function findMatch(brand, name, barcode, selfId){
+  const n = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const code = normCode(barcode);
+  return items.find(x => x.id !== selfId && (
+    (code && normCode(x.barcode) === code) ||
+    (n(name) && n(x.name) === n(name) && (!n(brand) || !n(x.brand) || n(x.brand) === n(brand)))));
+}
+function checkMatch(form, it, opts){
+  const box = $("#matchBox"); if (!box || it.id) return;
+  const m = findMatch(form.elements.brand.value, form.elements.name.value, form.elements.barcode.value, it.id);
+  if (!m){ box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="match"><span>You already have <b>${esc((m.brand ? m.brand + " " : "") + m.name)}</b> (${Number(m.qty)||0}).</span><button class="btn" type="button" id="mAdd">+1 to that</button></div>`;
+  $("#mAdd").onclick = async () => {
+    const patch = {...m, qty: (Number(m.qty)||0) + 1, updated: Date.now()};
+    if (!m.thumb && opts.thumb) patch.thumb = opts.thumb;
+    const code = normCode(form.elements.barcode.value); if (!m.barcode && code) patch.barcode = code;
+    await store.save(patch);
+    toast(`${m.name}: ${patch.qty} now`);
+    if (opts.onDone) opts.onDone(); else closeSheet();
+  };
+}
+
+/* Ask Claude to read a product photo. Returns {fields, unsure:Set, note} */
+async function identifyBlob(blob){
+  const ALL = ["brand","name","category","size","actives","pao"];
+  try{
+    const res = await claudeJSON(
+      `You are cataloging a personal beauty and skincare inventory. Look at the attached photo of ONE product (any angle: front, back, cap, box). ` +
+      `Read the visible text and packaging. Known brands in this inventory (prefer these exact spellings when they match): ${JSON.stringify(brandOptions().slice(0,150))}. ` +
+      `Reply with JSON only, exactly this shape: {"brand": string, "name": string, "category": one of ${JSON.stringify(CATEGORIES)}, "size": string, ` +
+      `"actives": string (comma-separated key active ingredients if the label or product name shows them, else ""), "pao": number or null (months, only if a PAO open-jar symbol like "12M" is visible), "barcode": string (digits only if a barcode number is legible, else ""), ` +
+      `"confidence": {"brand": "high"|"low", "name": "high"|"low", "category": "high"|"low", "size": "high"|"low", "actives": "high"|"low"}}. ` +
+      `Use "" for anything you cannot read and mark it "low". Mark "high" only when the text is clearly legible in the photo or the category is obvious from the product type. ` +
+      `Never invent a brand that isn't visible. If the photo isn't a beauty product, return all fields "" with "low".`,
+      blob);
+    const conf = (res && res.confidence) || {};
+    const unsure = new Set();
+    for (const k of ["brand","name","category","size"]) if (!res[k] || conf[k] !== "high") unsure.add(k);
+    if (res.actives && conf.actives !== "high") unsure.add("actives");
+    if (res.category && !CATEGORIES.includes(res.category)){ res.category = ""; unsure.add("category"); }
+    const got = ["brand","name"].filter(k => res[k]).length;
+    const note = !got ? "Couldn't read this one — fill it in below." :
+      unsure.size ? "✓ Filled in what I could read. Highlighted fields need a look." : "✓ Filled in from your photo — give it a quick check.";
+    return {fields: res, unsure, note};
+  }catch(e){
+    const c = e && e.code;
+    const note = c === "no_key" ? "Fill it in below — or add your Claude API key in Settings ⚙︎ to auto-fill from photos." :
+      c === "bad_key" ? "Your API key was rejected — check it in Settings ⚙︎." :
+      c === "offline" ? "You're offline — fill it in below." :
+      c === "rate_limited" ? "Too many requests — fill this one in, or try again in a minute." : "Couldn't identify it — fill it in below.";
+    return {fields: {}, unsure: new Set(["brand","name","category"]), note};
+  }
+}
+function applyAI(form, r, it, opts){
+  const f = r.fields || {};
+  const set = (n, val) => { const el = form.elements[n]; if (el && val && !el.value) el.value = val; };
+  set("brand", f.brand); set("name", f.name); set("size", f.size); set("actives", f.actives);
+  if (f.barcode && /^\d{8,14}$/.test(f.barcode)) set("barcode", normCode(f.barcode));
+  if (f.category) form.elements.category.value = f.category;
+  if (f.pao && [3,6,9,12,18,24,36].includes(Number(f.pao))) form.elements.pao.value = String(f.pao);
+  form.querySelectorAll("[data-f]").forEach(w => w.classList.toggle("check", r.unsure.has(w.dataset.f)));
+  const box = $("#aiBox"); if (box) box.innerHTML = `<span>${r.note}</span>`;
+  checkMatch(form, it, opts);
+}
+function confirmDelete(it){
+  const row = $("#fDelete").parentElement;
+  row.innerHTML = `<span style="align-self:center;flex:1;font-size:14px">Delete this product?</span><button class="btn ghost" type="button" id="dNo">Keep</button><button class="btn danger" type="button" id="dYes" style="background:var(--bad);color:#fff;border:0">Delete</button>`;
+  $("#dNo").onclick = () => showForm(it);
+  $("#dYes").onclick = async () => { const copy = {...it}; await store.remove(it.id); closeSheet(); toast("Deleted", () => store.save(copy)); };
+}
+
+/* Prepare one photo: barcode (if any), thumbnail, upload blob, preview url */
+async function preparePhoto(file){
+  const {img, url} = await loadImage(file);
+  try{
+    let code = null; try{ code = await decodeImage(img); }catch(e){}
+    const thumb = makeThumb(img);
+    const blob = await photoBlob(img);
+    const preview = drawScaled(img, 600, false).toDataURL("image/jpeg", 0.8);
+    return {code: code ? normCode(code) : "", thumb, blob, preview};
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* Photo queue: one product per photo */
+async function runQueue(files){
+  const n = files.length;
+  const jobs = files.map(f => ({file: f, promise: null}));
+  // process up to 2 at a time, ahead of where she is reviewing
+  const start = i => {
+    if (i >= n || jobs[i].promise) return;
+    jobs[i].promise = (async () => {
+      const p = await preparePhoto(jobs[i].file);
+      const known = p.code && items.find(x => normCode(x.barcode) === p.code);
+      const ai = known ? null : await identifyBlob(p.blob);
+      return {...p, known, ai};
+    })().catch(err => ({error: err}));
+  };
+  let added = 0, skipped = 0;
+  const show = async i => {
+    if (i >= n){ closeSheet(); toast(n > 1 ? `Done — ${added} added or updated${skipped ? `, ${skipped} skipped` : ""}` : (added ? "Done" : "Skipped")); return; }
+    start(i); start(i + 1);
+    if (!jobs[i].ready){
+      openSheet(`<div class="progress"><span>Photo ${i + 1} of ${n}</span></div><div style="display:flex;gap:12px;align-items:center;padding:18px 4px"><span class="spin"></span><span>Reading your photo…</span></div>`);
+    }
+    const r = await jobs[i].promise; jobs[i].ready = true;
+    start(i + 2);
+    const next = () => { added++; show(i + 1); };
+    const skip = () => { skipped++; show(i + 1); };
+    if (r.error){
+      openSheet(`<div class="progress"><span>Photo ${i + 1} of ${n}</span></div><h2>Couldn't open that photo</h2><div class="row"><button class="btn primary" id="eNext">${i < n - 1 ? "Next photo" : "Close"}</button></div>`);
+      $("#eNext").onclick = skip; return;
+    }
+    if (r.known){ showKnown(r.known, true, {queue:{i, n}, onDone: next}); return; }
+    const f = r.ai.fields || {};
+    const draft = {qty: 1, barcode: r.code || (f.barcode && /^\d{8,14}$/.test(f.barcode) ? normCode(f.barcode) : ""),
+      brand: f.brand || "", name: f.name || "", category: CATEGORIES.includes(f.category) ? f.category : "", size: f.size || "",
+      actives: f.actives || "", pao: [3,6,9,12,18,24,36].includes(Number(f.pao)) ? Number(f.pao) : ""};
+    showForm(draft, {thumb: r.thumb, photoUrl: r.preview, unsure: r.ai.unsure, aiNote: r.ai.note,
+      queue: n > 1 ? {i, n} : null, onDone: next, onSkip: skip});
+  };
+  show(0);
+}
+
+/* Barcode arrived (typed or from the barcode scanner) */
+function handleCode(raw, photo){
+  const code = normCode(raw);
+  if (!code){ toast("That barcode looks empty."); return; }
+  const it = items.find(x => normCode(x.barcode) === code);
+  if (it) showKnown(it, true);
+  else showForm({barcode: code, qty: 1}, photo || {});
+}
+
+$("#photoInput").addEventListener("change", e => {
+  const files = [...(e.target.files || [])].slice(0, 30);
+  e.target.value = "";
+  if (files.length) runQueue(files);
+});
+
+$("#scanInput").addEventListener("change", async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  openSheet(`<div style="display:flex;gap:12px;align-items:center;padding:18px 4px"><span class="spin"></span><span>Reading barcode…</span></div>`);
+  try{
+    const p = await preparePhoto(file);
+    if (p.code){ handleCode(p.code, {thumb: p.thumb, photo: p.blob, photoUrl: p.preview}); return; }
+    openSheet(`
+      <h2>Couldn't read the barcode</h2>
+      <div class="note">Try again with the barcode filling most of the frame, in good light and held flat. Or type the numbers printed under it:</div>
+      <form id="retryForm" class="manual" style="margin-top:12px"><input type="text" id="retryCode" inputmode="numeric" placeholder="Barcode number"><button class="btn primary" type="submit">Go</button></form>
+      <div class="row"><button class="btn ghost" id="rCancel">Cancel</button><button class="btn soft" id="rNoCode">Identify from photo</button></div>`);
+    $("#retryForm").onsubmit = ev => { ev.preventDefault(); const v = $("#retryCode").value; if (v.trim()) handleCode(v, {thumb: p.thumb, photo: p.blob, photoUrl: p.preview}); };
+    $("#rCancel").onclick = closeSheet;
+    $("#rNoCode").onclick = () => runQueue([file]);
+  }catch(err){
+    openSheet(`<h2>Something went wrong</h2><div class="err">${esc(err.message || err)}</div><div class="row"><button class="btn primary" id="eOk">OK</button></div>`);
+    $("#eOk").onclick = closeSheet;
+  }
+});
+
+$("#manualForm").onsubmit = e => { e.preventDefault(); const v = $("#manualCode").value; if (v.trim()){ handleCode(v); $("#manualCode").value = ""; } };
+$("#addNoCode").onclick = () => showForm({qty:1});
+$("#search").oninput = render;
+$("#sort").onchange = render;
+$("#chips").onclick = e => { const b = e.target.closest("[data-cat]"); if (b){ filter.cat = b.dataset.cat; render(); } };
+document.querySelectorAll(".stat").forEach(b => b.onclick = () => { const f = b.dataset.filter; filter.special = (filter.special === f || f === "all") ? "all" : f; render(); });
+$("#list").onclick = e => {
+  const t = e.target.closest("[data-inc],[data-dec],[data-open]"); if (!t) return;
+  if (t.dataset.inc) bump(t.dataset.inc, 1);
+  else if (t.dataset.dec) bump(t.dataset.dec, -1);
+  else { const it = items.find(x => x.id === t.dataset.open); if (it) showKnown(it); }
+};
+$("#exportBtn").onclick = () => {
+  const cols = ["brand","name","category","size","actives","qty","lowAt","location","opened","pao","expires","barcode","notes"];
+  const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
+  const csv = [cols.join(","), ...items.map(i => cols.map(c => q(i[c])).join(","))].join("\n");
+  openSheet(`<h2>Export</h2><div class="note">Copy this into Sheets, Excel or Notes.</div>
+    <textarea class="csv" readonly id="csvBox" style="margin-top:10px">${esc(csv)}</textarea>
+    <div class="row"><button class="btn ghost" id="cClose">Close</button><button class="btn ghost" id="cDl">Download</button><button class="btn primary" id="cCopy">Copy</button></div>`);
+  $("#cDl").onclick = () => download("shelf-inventory.csv", csv, "text/csv");
+  $("#cClose").onclick = closeSheet;
+  $("#cCopy").onclick = async () => {
+    try{ await navigator.clipboard.writeText(csv); toast("Copied"); }
+    catch(e){ const b = $("#csvBox"); b.focus(); b.select(); toast("Select all and copy"); }
+  };
+};
+
+/* ---------- live barcode scanner ---------- */
+let scanStream = null, scanTimer = null, scanBusy = false;
+async function openScanner(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ $("#scanInput").click(); return; }
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
+  }catch(e){ toast("Camera blocked — using a photo instead"); $("#scanInput").click(); return; }
+  const v = $("#scanVideo"); v.srcObject = scanStream;
+  $("#scanner").classList.add("open"); $("#scanHint").textContent = "Line up the barcode inside the box";
+  try{ await v.play(); }catch(e){}
+  const Z = window.ZXing;
+  let det = null;
+  if ("BarcodeDetector" in window){ try{ det = new BarcodeDetector(); }catch(e){} }
+  let reader = null, hints = null;
+  if (Z){ reader = new Z.MultiFormatReader(); hints = new Map(); hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.ITF, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX]); hints.set(Z.DecodeHintType.TRY_HARDER, true); reader.setHints(hints); }
+  const c = document.createElement("canvas"), x = c.getContext("2d", {willReadFrequently:true});
+  const tick = async () => {
+    if (!scanStream || scanBusy || !v.videoWidth) return;
+    scanBusy = true;
+    try{
+      let code = null;
+      if (det){ const f = await det.detect(v); if (f && f.length) code = f[0].rawValue; }
+      if (!code && reader){
+        // crop to the guide box region (center band) for speed
+        const vw = v.videoWidth, vh = v.videoHeight, cw = Math.round(vw * .9), ch = Math.round(vh * .45);
+        const sc = Math.min(1, 1100 / cw);
+        c.width = Math.round(cw * sc); c.height = Math.round(ch * sc);
+        x.drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
+        try{ const r = reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)))); if (r) code = r.getText(); }catch(e){}
+      }
+      if (code) await gotLiveCode(code, v);
+    }finally{ scanBusy = false; }
+  };
+  scanTimer = setInterval(tick, 220);
+}
+function closeScanner(){
+  clearInterval(scanTimer); scanTimer = null;
+  if (scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  $("#scanVideo").srcObject = null;
+  $("#scanner").classList.remove("open");
+}
+async function gotLiveCode(code, v){
+  // grab the current frame for a thumbnail / photo
+  const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
+  closeScanner();
+  const img = new Image(); img.src = c.toDataURL("image/jpeg", 0.85);
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+  let extra = {};
+  try{ extra = {thumb: makeThumb(img), photo: await photoBlob(img), photoUrl: drawScaled(img, 600, false).toDataURL("image/jpeg", .8)}; }catch(e){}
+  handleCode(code, extra);
+}
+$("#liveScanBtn").onclick = openScanner;
+$("#scanClose").onclick = closeScanner;
+$("#scanPhoto").onclick = () => { closeScanner(); $("#scanInput").click(); };
+document.addEventListener("visibilitychange", () => { if (document.hidden && scanStream) closeScanner(); });
+
+/* ---------- settings, backup, restore ---------- */
+function download(name, text, type){
+  const blob = new Blob([text], {type}); const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function backupNow(){
+  const d = new Date().toISOString().slice(0,10);
+  download(`shelf-backup-${d}.json`, JSON.stringify({app:"shelf", version:1, exported:new Date().toISOString(), items}, null, 1), "application/json");
+  try{ localStorage.setItem("shelf-last-backup", String(Date.now())); }catch(e){}
+  toast("Backup saved to your Downloads / Files");
+}
+$("#backupBtn").onclick = () => showSettings();
+$("#settingsBtn").onclick = () => showSettings();
+function showSettings(){
+  const key = getKey();
+  let last = 0; try{ last = Number(localStorage.getItem("shelf-last-backup")) || 0; }catch(e){}
+  openSheet(`
+    <h2>Settings</h2>
+    <div class="section" style="border:0;margin-top:6px;padding-top:0">
+      <h3>Photo auto-fill</h3>
+      <div class="note" style="margin:0 0 8px">Paste your Claude API key to let the app read product photos. It's stored only on this phone and sent only to Anthropic. Get one at console.anthropic.com → API Keys.</div>
+      <input type="text" id="apiKey" placeholder="sk-ant-…" value="${esc(key)}" autocomplete="off" autocapitalize="off" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:13px">
+      <div class="row" style="margin-top:8px"><button class="btn ghost" id="keyClear" ${key ? "" : "disabled"}>Remove</button><button class="btn primary" id="keySave">Save key</button></div>
+    </div>
+    <div class="section">
+      <h3>Backup &amp; restore</h3>
+      <div class="note" style="margin:0 0 8px">Your shelf lives on this phone. Save a backup now and then — it's also how you move to a new phone. ${last ? "Last backup: " + new Date(last).toLocaleDateString() + "." : "No backup yet."}</div>
+      <div class="row" style="margin-top:0"><button class="btn primary" id="bSave">Save backup</button>
+      <label class="btn ghost" style="margin:0;flex:1">Restore<input type="file" id="bLoad" accept="application/json,.json" class="hidden"></label></div>
+    </div>
+    <div class="section">
+      <h3>Export</h3>
+      <div class="row" style="margin-top:0"><button class="btn ghost" id="sCsv">Export CSV for Sheets / Excel</button></div>
+    </div>
+    <div class="row"><button class="btn ghost" id="sClose">Close</button></div>`);
+  $("#sClose").onclick = closeSheet;
+  $("#keySave").onclick = () => { const v = $("#apiKey").value.trim(); try{ if (v) localStorage.setItem("shelf-api-key", v); }catch(e){} toast(v ? "Key saved" : "No key entered"); if (v) closeSheet(); };
+  $("#keyClear").onclick = () => { try{ localStorage.removeItem("shelf-api-key"); }catch(e){} toast("Key removed"); showSettings(); };
+  $("#bSave").onclick = backupNow;
+  $("#sCsv").onclick = () => $("#exportBtn").click();
+  $("#bLoad").onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try{
+      const data = JSON.parse(await f.text());
+      const list = Array.isArray(data) ? data : data.items;
+      if (!Array.isArray(list)) throw new Error();
+      let added = 0, updated = 0;
+      for (const it of list){
+        if (!it || typeof it !== "object") continue;
+        const rec = {...it, id: it.id || uid()};
+        if (items.some(x => x.id === rec.id)) updated++; else added++;
+        await store.save(rec);
+      }
+      closeSheet(); toast(`Restored — ${added} added, ${updated} updated`);
+    }catch(err){ toast("That file isn't a Shelf backup"); }
+  };
+}
+
+if ("serviceWorker" in navigator && location.protocol === "https:"){
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
+render();
+initStore();
+</script>
+</body>
+</html>
